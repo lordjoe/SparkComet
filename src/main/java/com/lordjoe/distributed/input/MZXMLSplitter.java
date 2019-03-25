@@ -164,7 +164,7 @@ public class MZXMLSplitter implements Serializable {
 
     public static File saveMZXML(File outDir, MZXMLFile file)  throws IOException {
         File  out = buildFile(outDir);
-        System.out.println(out.getName());
+      //  System.out.println(out.getName());
         String text = file.makeIndexedString();
         FileUtilities.writeFile(out,text);
         return out;

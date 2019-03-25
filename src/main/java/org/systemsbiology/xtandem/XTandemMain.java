@@ -2,12 +2,12 @@ package org.systemsbiology.xtandem;
 
 import com.lordjoe.distributed.SparkUtilities;
 import com.lordjoe.distributed.spark.HydraSparkUtilities;
-import org.systemsbiology.hadoop.*;
+import com.lordjoe.utilities.FileUtilities;
+import org.systemsbiology.hadoop.DelegatingFileStreamOpener;
+import org.systemsbiology.hadoop.IParameterHolder;
+import org.systemsbiology.hadoop.IStreamOpener;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 ;
@@ -20,7 +20,7 @@ import java.util.*;
  * This has the program main
  */
 public class XTandemMain extends AbstractParameterHolder implements IParameterHolder {
-     public static final String HARDCODED_MODIFICATIONS_PROPERTY = "org.systemsbiology.xtandem.HardCodeModifications";
+    public static final String HARDCODED_MODIFICATIONS_PROPERTY = "org.systemsbiology.xtandem.HardCodeModifications";
     public static final String NUMBER_REMEMBERED_MATCHES = "org.systemsbiology.numberRememberedMatches";
 
     private static boolean gShowParameters = true;
@@ -62,7 +62,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
     }
 
 
-     private boolean m_SemiTryptic;
+    private boolean m_SemiTryptic;
     private String m_DefaultParameters;
     private String m_TaxonomyInfo;
     private String m_SpectrumPath;
@@ -71,7 +71,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
     private String m_TaxonomyName;
     private final StringBuffer m_Log = new StringBuffer();
 
-       private final Map<String, String> m_PerformanceParameters = new HashMap<String, String>();
+    private final Map<String, String> m_PerformanceParameters = new HashMap<String, String>();
     private final DelegatingFileStreamOpener m_Openers = new DelegatingFileStreamOpener();
 
     // used by Map Reduce
@@ -105,7 +105,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
 
     public XTandemMain(final InputStream is, String url) {
         //     Protein.resetNextId();
-          Properties predefined = XTandemHadoopUtilities.getHadoopProperties();
+        Properties predefined = XTandemHadoopUtilities.getHadoopProperties();
         for (String key : predefined.stringPropertyNames()) {
             setPredefinedParameter(key, predefined.getProperty(key));
         }
@@ -121,7 +121,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
 
     private void setPredefinedParameter(String key, String value) {
         setParameter(key, value);
-      }
+    }
 
     public void appendLog(String added) {
         m_Log.append(added);
@@ -175,7 +175,6 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
     }
 
 
-
     public boolean isSemiTryptic() {
         return m_SemiTryptic;
     }
@@ -185,13 +184,12 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
     }
 
 
-
-       /**
+    /**
      * what do we call the database or output directory
      *
      * @return !null name
      */
-     public String getDatabaseName() {
+    public String getDatabaseName() {
         String ret = m_TaxonomyName; //getParameter("protein, taxon");
         //  System.err.println("database name = " + m_TaxonomyName);
         return conditionDatabaseName(ret);
@@ -213,11 +211,20 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
      * @param is
      */
     public void handleInputs(final InputStream is, String url) {
-        Map<String, String> notes = XTandemUtilities.readNotes(is, url);
+        String text = FileUtilities.readInFile(is);
+        Map<String, String> notes;
+        try {
+            if(true)
+                throw new IllegalArgumentException("problem"); // ToDo change
+            InputStream isx = new ByteArrayInputStream(text.getBytes());
+            notes = XTandemUtilities.readNotes(isx, url);
+        } catch (Exception ex) {
+            notes = parseNotesLines(text);
+        }
 
         for (String key : notes.keySet()) {
-             setParameter(key, notes.get(key));
-          }
+            setParameter(key, notes.get(key));
+        }
 
         if (isShowParameters()) {
             for (String key : notes.keySet()) {
@@ -254,7 +261,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
         try {
             readDefaultParameters(notes);
         } catch (Exception e) {
-           // e.printStackTrace();
+            // e.printStackTrace();
             // forgive
             System.err.println("Cannot find file " + m_DefaultParameters);
         }
@@ -262,12 +269,11 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
         XTandemUtilities.validateParameters(this);
 
 
-
         String digesterSpec = getParameter("protein, cleavage site", "trypsin");
         int missedCleavages = getIntParameter("scoring, maximum missed cleavage sites", 0);
 
 
-            boolean bval = getBooleanParameter("protein, cleavage semi", false);
+        boolean bval = getBooleanParameter("protein, cleavage semi", false);
         setSemiTryptic(bval);
 
 //        String parameter = getParameter(JXTandemLauncher.ALGORITHMS_PROPERTY);
@@ -275,9 +281,29 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
 //            addAlternateParameters(parameter);
 
 
-
     }
 
+    private Map<String, String> parseNotesLines(String text) {
+        Map<String, String> ret = new HashMap<>();
+        String[] lines = text.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if(line.contains("<!--"))
+                continue;
+            int index = line.indexOf("label=\"") ;
+            if(index > -1) {
+                line = line.substring(index + "label=\"".length());
+                int index2 = line.indexOf("\"");
+                String label = line.substring(0,index2);
+                line = line.substring(index2);
+                String value  = line.substring(line.indexOf(">") + 1,
+                        line.indexOf("</note>"));
+                ret.put(label,value);
+            }
+        }
+        
+        return ret;
+    }
 
 
     protected static File getInputFile(Map<String, String> notes, String key) {
@@ -298,7 +324,6 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
 
         return ret;
     }
-
 
 
     public String getDefaultParameters() {
@@ -325,11 +350,11 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
         return m_TaxonomyName;
     }
 
-         /*
- * modify checks the input parameters for known parameters that are use to modify
- * a protein sequence. these parameters are stored in the m_pScore member object's
- * msequenceutilities member object
- */
+    /*
+     * modify checks the input parameters for known parameters that are use to modify
+     * a protein sequence. these parameters are stored in the m_pScore member object's
+     * msequenceutilities member object
+     */
 
     protected String[] readModifications() {
         List<String> holder = new ArrayList<String>();
@@ -392,7 +417,6 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
     public final String DEFAULT_SCORING_CLASS = "org.systemsbiology.xtandem.TandemKScoringAlgorithm";
 
 
-
     /**
      * read the parameters dscribed in the bioml file
      * listed in "list path, default parameters"
@@ -432,7 +456,7 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
                 // maybe this is a resource
                 is = XTandemMain.class.getResourceAsStream(m_DefaultParameters);
                 if (is == null) {
-                   }
+                }
             }
 
             Map<String, String> map = XTandemUtilities.readNotes(is, paramName);
@@ -447,7 +471,6 @@ public class XTandemMain extends AbstractParameterHolder implements IParameterHo
         parametersMap.putAll(inputParameters);
         inputParameters.putAll(parametersMap);
     }
-
 
 
 }

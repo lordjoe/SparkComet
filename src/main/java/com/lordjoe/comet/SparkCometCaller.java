@@ -23,6 +23,7 @@ import scala.Tuple2;
 import java.io.*;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 
 /**
  * com.lordjoe.comet.SparkCometCaller
@@ -159,8 +160,9 @@ public class SparkCometCaller  implements Serializable {
         }
 
         String spectrumPath = scoringApplication.getSpectrumPath();
-
+        System.out.println("Spectrum " + spectrumPath);
         String databaseName = scoringApplication.getDatabaseName();
+        System.out.println("Database " + databaseName);
 
 
         String addedFiles = scoringApplication.getParameter("com.lordjoe.distributed.files", "");
@@ -185,14 +187,37 @@ public class SparkCometCaller  implements Serializable {
         if(binStr != null)
             spectraToHandle = Integer.parseInt(binStr);
         File spectra = new File(spectrumPath);
-        List<File> files = MzXMLUtilities.splitMzXMLFile(spectra,SPECTRA_TO_HANDLE);
-        File tempdir = files.get(0).getParentFile();
 
-        System.out.println("Fasta Split " + tempdir.getAbsolutePath());
-        JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdir.getAbsolutePath()).values();
+        File tempdir = new File(spectra.getParentFile(),UUID.randomUUID().toString());
+
+        List<File> files = MzXMLUtilities.splitMzXMLFile(spectra,tempdir,spectraToHandle);
+
+        String tempdirAbsolutePath = tempdir.getAbsolutePath();
+        System.out.println("mzXML Split " + tempdirAbsolutePath);
+        File[] files1 = tempdir.listFiles();
+        for (int i = 0; i < files1.length; i++) {
+            File file = files1[i];
+            if(!file.exists()) {
+                System.out.println(file.getAbsolutePath() + " does not exist!");
+            }
+            if(!file.canRead()) {
+                System.out.println(file.getAbsolutePath() + " cannot be read!");
+            }
+            System.out.println(file.getAbsolutePath());
+        }
+        System.out.println("end mzXMLFiles");
+
+
+        if(!tempdir.exists()) {
+            System.out.println(tempdir.getAbsolutePath() + " does not exist!");
+        }
+        if(!tempdir.canRead()) {
+            System.out.println(tempdir.getAbsolutePath() + " cannot be read!");
+        }
+          JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdirAbsolutePath).values();
 
                 //    String header = getSpectrumHeader(spectrumPath);
-    //    JavaRDD<String> spectraData =  SparkSpectrumUtilities.partitionAsMZXML(spectrumPath,currentContext,SPECTRA_TO_HANDLE,header).values();
+    //    JavaRDD<String> spectraData =  SparkSpectrumUtilities.partitionAsMZXML(spectrumPath,currentContext,spectraToHandle,header).values();
 
    //     databasePath
    //     List<String> spectra = spectraData.collect();
@@ -209,7 +234,8 @@ public class SparkCometCaller  implements Serializable {
 
         handleScores(pepXMLS, scoringApplication);
 
-        for (File file : files) {
+        System.out.println("Cleaning Up");
+         for (File file : files1) {
               file.delete();
         }
         tempdir.delete();

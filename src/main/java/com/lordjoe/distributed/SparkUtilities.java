@@ -451,7 +451,8 @@ public class SparkUtilities implements Serializable {
 
         option = sparkConf.getOption("spark.serializer");
         if (!option.isDefined())
-            sparkConf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer");   // todo use kryo
+            sparkConf.set("spark.serializer", "org.apache.spark.serializer.kryoserializer");
+        sparkConf.set("spark.kryo.registrator", "com.lordjoe.distributed.hydra.HydraKryoSerializer");
 //        else {
 //             if(option.get().equals("org.apache.spark.serializer.KryoSerializer"))
 //                   sparkConf.set("spark.kryo.registrator", "com.lordjoe.distributed.hydra.HydraKryoSerializer");
@@ -469,6 +470,15 @@ public class SparkUtilities implements Serializable {
 //        option = sparkConf.getOption("spark.executor.heartbeatInterval");
 //        if (option.isDefined())
 //            System.err.println("timeout = " + option.get());
+
+        sparkConf.remove("spark.shuffle.manager");
+        sparkConf.setAppName("SparkComet");
+        
+        System.out.println("All config properties");
+        for (Tuple2<String, String> kv : sparkConf.getAll()) {
+            System.out.println(kv._1 + " = " + kv._2);
+        }
+
         ret = new JavaSparkContext(sparkConf);
 
         SparkContext sparkContext = JavaSparkContext.toSparkContext(ret);

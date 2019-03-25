@@ -6,8 +6,6 @@ import com.lordjoe.utilities.FileUtilities;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -117,16 +115,13 @@ public class MzXMLUtilities {
      * @param originalFile
      * @return
      */
-    public static List<File> splitMzXMLFile(File originalFile,int numberScans)  {
+    public static List<File> splitMzXMLFile(File originalFile,File dir,int numberScans)  {
 
         try {
-            Path tempPath = Files.createTempDirectory(originalFile.getName() + "splits");
-            File dir = tempPath.toFile();
-            dir.deleteOnExit();
-            List<File> files = MZXMLSplitter.splitMZXML(originalFile, dir, numberScans);
-            for (File file : files) {
-                 file.deleteOnExit();
-            }
+             List<File> files = MZXMLSplitter.splitMZXML(originalFile, dir, numberScans);
+//            for (File file : files) {
+//                 file.deleteOnExit();
+//            }
             return files;
         } catch (IOException e) {
             throw new RuntimeException(e);
