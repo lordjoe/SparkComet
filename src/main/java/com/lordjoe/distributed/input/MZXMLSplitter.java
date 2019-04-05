@@ -74,15 +74,24 @@ public class MZXMLSplitter implements Serializable {
 
     public static List<File> splitMZXML(File input, File outDir, int maxScans) throws IOException {
         List<File>  ret = new ArrayList<>();
+        long size = input.length();
          FileUtilities.expungeDirectory(outDir);
         boolean ok = outDir.mkdirs();
         String[] lineHolder = new String[1];
         LineNumberReader rdr = new LineNumberReader(new FileReader(input));
         String header = readMZXMLHeader(rdr, lineHolder);
         File f = readAndSaveScans(outDir, rdr, header, lineHolder, maxScans) ;
+        int line = rdr.getLineNumber();
+        System.out.println(f.getName() + " line " + line );
+        System.gc();
         while(f != null)   {
             ret.add(f);
             f = readAndSaveScans(outDir, rdr, header, lineHolder, maxScans) ;
+            if(f != null) {
+                line = rdr.getLineNumber();
+                System.out.println(f.getName() + " line " + line);
+                System.gc();
+            }
         }
         return ret;
     }
@@ -103,8 +112,9 @@ public class MZXMLSplitter implements Serializable {
         while (numberScans < maxScans) {
             MZXMLFile file = new MZXMLFile(header);
             int newScans = readNextScan(rdr, lineHolder, file, maxScans);
-            if (newScans > 0)
+            if (newScans > 0) {
                 return saveMZXML(outDir, file);
+            }
             if(newScans == 0)  {
                 return null; // done
             }

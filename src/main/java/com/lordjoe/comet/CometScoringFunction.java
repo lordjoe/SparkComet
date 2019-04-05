@@ -16,7 +16,7 @@ import java.util.UUID;
  */
 public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String, String>, String> {
 
-    private static final long MAX_ELAPSED = 20 * 60 * 1000; // 10 minutes
+    private static final long MAX_ELAPSED = 90 * 1000; // 1 minutes
     private transient String baseParamters;
 
     private String getCurrentParameters(String fastaFile) {
@@ -38,6 +38,7 @@ public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String,
         String fasta = v1._1;
         String mzXML = v1._2;
 
+        System.out.println( "Fasta size " + fasta.length() +" mzXML " +  mzXML.length() );
         File fastaFile = createLocalFile(fasta,"fasta");
         FileUtilities.writeFile(fastaFile,fasta);
         File xmlFile = createLocalFile(mzXML,"mzXML");
@@ -50,22 +51,25 @@ public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String,
         File outFile = new File(outFilePath);
         String outfileName =  outFile.getName();
         outfileName = outfileName.replace(".pep.xml","");
-
-        boolean success = CommandLineExecutor.executeCommandLine("comet",
+        StringBuilder output = new StringBuilder();
+        StringBuilder errors = new StringBuilder();
+        boolean success = CommandLineExecutor.executeCommandLine(output,errors,"comet",
                 "-P" + paramsFile.getName(),
                 xmlFile.getAbsolutePath()
         );
         String ret = null;
-        if(success) {
+        boolean cometSuccess = defineCometSuccess(output.toString(),errors.toString());
+        if(success && cometSuccess) {
             ElapsedTimer timer = new ElapsedTimer();
             while (timer.getElapsedMillisec() < MAX_ELAPSED) {
                 if (outFile.exists() && outFile.canRead())
                     break;
-                System.out.println("Waiting for file " + outFile.getAbsolutePath());
-                  Thread.sleep(3000);
+                System.out.println("Waiting for file " + outFile.getAbsolutePath() + " " + timer.getElapsedMillisec() / 60000  +" min");
+                  Thread.sleep(60000);
             }
             if (!outFile.exists() || !outFile.canRead()) {
-                System.err.println("File timeout after  " + timer.getElapsedMillisec() / 1000);
+                success = false;
+                System.err.println("File timeout after  " + timer.getElapsedMillisec() / 60000 +" min");
             }
             if (success) {
                 ret = FileUtilities.readInFile(outFile);
@@ -85,10 +89,18 @@ public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String,
                     " " +  paramsFile.getAbsolutePath()
 
             );
-            System.out.println("Stop andf look");
+            System.out.println("Stop and look");
         }
         return ret;
 
+    }
+
+    private boolean defineCometSuccess(String output, String errors) {
+        if(output.contains(" no spectra searched."))
+            return false;
+        if(errors.contains(" no spectra searched."))
+            return false;
+        return true;
     }
 
     private File createLocalFile(String fasta,String extension) {

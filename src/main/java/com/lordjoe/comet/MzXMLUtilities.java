@@ -116,7 +116,13 @@ public class MzXMLUtilities {
      * @return
      */
     public static List<File> splitMzXMLFile(File originalFile,File dir,int numberScans)  {
-
+        if(originalFile.isDirectory()) {
+            List<File> files = new ArrayList<>();
+            File[] dirFiles = originalFile.listFiles();
+            if(dirFiles != null)
+                files.addAll(Arrays.asList(dirFiles));
+            return files;
+        }
         try {
              List<File> files = MZXMLSplitter.splitMZXML(originalFile, dir, numberScans);
 //            for (File file : files) {

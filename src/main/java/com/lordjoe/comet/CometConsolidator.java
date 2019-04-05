@@ -108,7 +108,7 @@ public class CometConsolidator implements Serializable {
 //        textOut = headerRdd.union(textOut);
 //        textOut = textOut.union(footerRdd);
 
-
+        System.out.println("saving file " + path);
         SparkFileSaver.saveAsFile(path, textOut,header,footer);
      }
 

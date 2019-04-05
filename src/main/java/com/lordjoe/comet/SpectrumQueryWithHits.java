@@ -19,7 +19,7 @@ public class SpectrumQueryWithHits implements Serializable {
 
 
     public SpectrumQueryWithHits(String wholeQuery) {
-        queryLine = wholeQuery.substring(0,wholeQuery.indexOf("\n"));
+        queryLine = wholeQuery.substring(0,wholeQuery.indexOf("\n")).trim();
         List<String> hits = XMLUtilities.extractXMLTags(wholeQuery, "search_hit");
         searchHits = new HashSet<>(hits);
     }
@@ -29,11 +29,34 @@ public class SpectrumQueryWithHits implements Serializable {
     }
 
     public SpectrumQueryWithHits addQuery(SpectrumQueryWithHits added)  {
-        if(!queryLine.equalsIgnoreCase(added.queryLine))
-            throw new IllegalStateException("mismatched queries");
+        if(!spectraMatches(queryLine,added.queryLine)) {
+            String originalstr = "original:" + queryLine;
+            System.out.println(originalstr);
+            String mismatchStr = "mismatch:" + added.queryLine;
+            System.out.println(mismatchStr);
+            System.err.println(originalstr);
+            System.err.println(mismatchStr);
+
+            throw new IllegalStateException("mismatched queries:  " + originalstr + ":vs:" + mismatchStr);
+
+        }
         searchHits.addAll(added.searchHits);
         return this;
     }
+
+    private boolean spectraMatches(String queryLine, String queryLine1) {
+        String spectrum1 = extractSpectrum(queryLine);
+        String spectrum2 = extractSpectrum(queryLine1);
+        return spectrum1.equals(spectrum2);
+    }
+
+    private String extractSpectrum(String queryLine) {
+        String part1 = queryLine.substring(queryLine.indexOf("spectrum=\""));
+        String ret = part1.substring(0,part1.indexOf("\""));
+        return ret;
+
+    }
+
 
     public String formatBestHits(int numberHits) {
         StringBuilder sb = new StringBuilder();

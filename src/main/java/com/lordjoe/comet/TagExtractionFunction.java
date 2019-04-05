@@ -26,11 +26,17 @@ public class TagExtractionFunction  extends AbstractLoggingPairFlatMapFunction<S
 
     @Override
     public Iterator<Tuple2<String, String>> doCall(String s) throws Exception {
-        List<String> strings = XMLUtilities.extractXMLTags(s, tag);
         List<Tuple2<String, String>> ret = new ArrayList<>();
-        for (String value : strings) {
-           String key =  XMLUtilities.extractTag(attribute,value);
-           ret.add(new Tuple2<String, String>(key,value));
+        if(s == null)
+            return ret.iterator();
+        try {
+            List<String> strings = XMLUtilities.extractXMLTags(s, tag);
+            for (String value : strings) {
+              String key =  XMLUtilities.extractTag(attribute,value);
+              ret.add(new Tuple2<String, String>(key,value));
+           }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return ret.iterator();
     }

@@ -55,10 +55,12 @@ public class MultiFileExecutor {
             String f2path = f2.getAbsolutePath();
             String f3Path = f3.getAbsolutePath();
             String command = "cat " + f1path + " "  + f2path + " > "  + f3Path;
+            StringBuilder output = new StringBuilder();
+            StringBuilder errors = new StringBuilder();
             if(osIsWindows())
-                success = CommandLineExecutor.executeCommandLine("cmd","/c",command);
+                success = CommandLineExecutor.executeCommandLine(output,errors,"cmd","/c",command);
             else
-                success = CommandLineExecutor.executeCommandLine("/bin/sh","-c",command);
+                success = CommandLineExecutor.executeCommandLine(output,errors,"/bin/sh","-c",command);
 
 
             if(success) {

@@ -38,18 +38,18 @@ public class CommandLineExecutor implements Serializable {
         CommandLineExecutor.showSystemOut = showSystemOut;
     }
 
-    public static boolean executeCommandLine(String... args ) throws IOException {
+    public static boolean executeCommandLine(StringBuilder output,StringBuilder errors ,String... args ) throws IOException {
         ProcessBuilder p = new ProcessBuilder(  args);
         String commandLine = buildCommandLine(p);
-        if(isShowCommandLine())
-          System.out.println("Started  " + commandLine);
+        if(isShowCommandLine()) {
+            System.out.println("Started  " + commandLine);
+            System.err.println("Started  " + commandLine);
+        }
 
 
         Process process = p.start();
         try {
             String line;
-            StringBuilder output = new StringBuilder();
-            StringBuilder errors = new StringBuilder();
 
             BufferedReader bri = new BufferedReader
                     (new InputStreamReader(process.getInputStream()));
@@ -79,8 +79,10 @@ public class CommandLineExecutor implements Serializable {
             if(isShowSystemOut())
                 System.out.println("Output  " + output );
 
-            if(isShowCommandLine())
+            if(isShowCommandLine()) {
                 System.out.println("Ended  " + commandLine + "Result" + result );
+                System.err.println("Ended  " + commandLine + "Result" + result );
+            }
 
             return returnVal == 0;
         } catch (InterruptedException e) {

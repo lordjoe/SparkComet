@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<bioml>
+    <note type="input" label="list path, default parameters">parameters_searchGUI.xml</note>
+    <note type="input" label="list path, taxonomy information">taxonomy_searchGUI.xml</note>
+    <!-- <note type="input" label="protein, taxon">all</note> -->
+    <note type="input" label="protein, taxon">test5.fasta</note>
+    <!-- <note type="input" label="protein, taxon">uniprot_sprot.fasta</note> -->
+    <!-- <note type="input" label="protein, taxon">swissSmall.fasta</note> -->
+    <!-- <note type="input" label="protein, taxon">select_20.fasta</note> -->
+    <!--	<note type="input" label="spectrum, path">EGTA9-1.mzXML</note>
+         <note type="input" label="spectrum, path">EGTA9-1.mzXML</note>  -->
+    <note type="input" label="spectrum, path">2DLCSE100318_L_002.mgf</note>
+    <note type="input" label="output, path">tes2DLCSE100318_L_002t5.out.xml</note>
+</bioml>

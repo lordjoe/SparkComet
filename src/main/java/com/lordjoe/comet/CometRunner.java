@@ -17,7 +17,10 @@ public class CometRunner implements Serializable {
     private static boolean runComet(File spectrum, File fasta, File out, int index) throws IOException {
 
         File params = buildParams(fasta, index);
-        boolean success = CommandLineExecutor.executeCommandLine("comet",
+        StringBuilder output = new StringBuilder();
+        StringBuilder errors = new StringBuilder();
+
+        boolean success = CommandLineExecutor.executeCommandLine(output,errors,"comet",
                 "-P" + params.getName(),
                 spectrum.getAbsolutePath()
         );
