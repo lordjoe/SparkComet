@@ -28,7 +28,7 @@ import java.util.UUID;
  */
 public class MultiMGFInputFormat extends FileInputFormat<String, String> implements Serializable {
 
-public static final String START_STRING = "BEGIN_IONS";
+    public static final String START_STRING = "BEGIN_IONS";
     public static final boolean FORCE_ONE_MAPPER = false;
     // todo run off a parameter
     // setting this small forces many mappers
@@ -41,8 +41,8 @@ public static final String START_STRING = "BEGIN_IONS";
 
     private String m_Extension = "mgf";
 
-     public MultiMGFInputFormat() {
-     }
+    public MultiMGFInputFormat() {
+    }
 
 
     public String getExtension() {
@@ -79,11 +79,11 @@ public static final String START_STRING = "BEGIN_IONS";
 
     @Override
     public RecordReader<String, String> createRecordReader(InputSplit split,
-                                                       TaskAttemptContext context) {
+                                                           TaskAttemptContext context) {
         if (isSplitReadable(split))
             return new MultiMGFFileReader();
         else
-            return  NullRecordReader.INSTANCE; // do not read
+            return NullRecordReader.INSTANCE; // do not read
     }
 
     @Override
@@ -161,16 +161,15 @@ public static final String START_STRING = "BEGIN_IONS";
         }
 
         HadoopUtilities.validateSplits(splits);
-     //   LOG.debug("Total # of splits: " + splits.size());
+        //   LOG.debug("Total # of splits: " + splits.size());
         return splits;
     }
 
     /**
-     *
      * Value is the fasta record  minus the comment line
      * Key is the comment line
      */
-    public   class MultiMGFFileReader extends RecordReader<String, String> {
+    public class MultiMGFFileReader extends RecordReader<String, String> {
 
         private CompressionCodecFactory compressionCodecs = null;
         private long m_Start;  // start this split
@@ -203,7 +202,7 @@ public static final String START_STRING = "BEGIN_IONS";
             final CompressionCodec codec = compressionCodecs.getCodec(file);
             boolean skipFirstLine = false;
 
-            m_spectraToHandle = context.getConfiguration().getInt("spectraPerGroup",1000);
+            m_spectraToHandle = context.getConfiguration().getInt("spectraPerGroup", 1000);
             // open the file and seek to the m_Start of the split
             FileSystem fs = file.getFileSystem(job);
             m_FileIn = fs.open(split.getPath());
@@ -224,8 +223,8 @@ public static final String START_STRING = "BEGIN_IONS";
                         (int) Math.min((long) Integer.MAX_VALUE, m_End - m_Start));
             }
             m_Current = m_Start;
-              m_Key = split.getPath().getName();
-           }
+            m_Key = split.getPath().getName();
+        }
 
         /**
          * look for a line starting with > and read until it closes
@@ -246,14 +245,14 @@ public static final String START_STRING = "BEGIN_IONS";
             if (m_CurrentLine == null) {
                 m_CurrentLine = readNextLine();
                 if (m_CurrentLine == null) { // end of file
-                    if(m_Valuex.length() == 0)
+                    if (m_Valuex.length() == 0)
                         return false;
-                     return true;
+                    return true;
                 }
             }
 
             // lines starting with > are a new field in MGF files
-            while (m_FileIn.getPos() < m_End   && !m_CurrentLine.startsWith(START_STRING)) {
+            while (m_FileIn.getPos() < m_End && !m_CurrentLine.startsWith(START_STRING)) {
                 m_CurrentLine = readNextLine();
             }
 
@@ -268,16 +267,16 @@ public static final String START_STRING = "BEGIN_IONS";
 
             int nFields = 0;
             boolean readOK = true;
-            while(readOK && nFields++ < m_NumberFields )   {
+            while (readOK && nFields++ < m_NumberFields) {
                 readOK = readNextField();
             }
-       
+
             m_Current = m_FileIn.getPos();
             return true;
         }
 
-        private boolean readNextField() throws IOException  {
-             m_Data.setLength(0); // clear the buffer
+        private boolean readNextField() throws IOException {
+            m_Data.setLength(0); // clear the buffer
             m_Data.append(m_CurrentLine);
             m_Data.append("\n");
             m_CurrentLine = readNextLine();
@@ -290,11 +289,11 @@ public static final String START_STRING = "BEGIN_IONS";
             }
 
             if (m_Data.length() == 0) {  // cannot read
-                  return false;
+                return false;
             }
 
             String str = m_Data.toString();
-             m_Valuex.append(str);
+            m_Valuex.append(str);
             m_Data.setLength(0); // clear the buffer
             return true; // one field read
         }
@@ -302,10 +301,10 @@ public static final String START_STRING = "BEGIN_IONS";
 
         protected String readNextLine() throws IOException {
             int newSize = m_Input.readLine(m_Line, m_MaxLineLength,
-                    Math.max(  Math.min(Integer.MAX_VALUE, (int) (m_End - m_Current)),
+                    Math.max(Math.min(Integer.MAX_VALUE, (int) (m_End - m_Current)),
                             m_MaxLineLength));
             if (newSize == 0)
-                  return null;
+                return null;
             m_Current += newSize; // new position
             return m_Line.toString();
         }
@@ -317,7 +316,7 @@ public static final String START_STRING = "BEGIN_IONS";
 
         @Override
         public String getCurrentValue() {
-            if(m_Valuex.length() == 0)
+            if (m_Valuex.length() == 0)
                 return null;
             return m_Valuex.toString();
         }

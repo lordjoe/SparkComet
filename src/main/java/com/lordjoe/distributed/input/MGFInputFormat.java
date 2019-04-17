@@ -260,15 +260,18 @@ public class MGFInputFormat extends FileInputFormat<String, String> implements S
             }
 
             // label = key   - drop the >
-             m_Key = m_CurrentLine.substring(1);
+             m_Key = Long.toString(m_Current);
 
             m_Data.setLength(0); // clear the buffer
+            m_Data.append(m_CurrentLine);
+            m_Data.append("\n");
             m_CurrentLine = readNextLine();
             if(m_CurrentLine.startsWith("TITLE="))
                 m_Key = m_CurrentLine.substring("TITLE=".length());
             // keep reading
             while (m_CurrentLine != null && !m_CurrentLine.startsWith("BEGIN IONS")) {
                 m_Data.append(m_CurrentLine);
+                m_Data.append("\n");
                 m_CurrentLine = readNextLine();
 
             }

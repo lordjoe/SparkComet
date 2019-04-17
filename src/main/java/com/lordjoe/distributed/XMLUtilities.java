@@ -15,24 +15,30 @@ public class XMLUtilities
 
 
     public static List<String> extractXMLTags(String xml,String tag)  {
+        int[] calls = new int[1];
         List<String> ret = new ArrayList<>() ;
-        extractXMLTagsInternal(ret,xml,tag,0);
+        int start = 0;
+        while(start > -1)
+            start = extractXMLTagsInternal(ret,xml,tag,start,calls);
          return ret;
 
     }
 
-    private static void extractXMLTagsInternal(List<String> holder,String xml,String tag,int start)  {
+    private static int extractXMLTagsInternal(List<String> holder,String xml,String tag,int start,int[] calls)  {
         String tagStart = "<"  + tag;
         String tagEnd = "</"  + tag + ">";
+        if(xml.length() < tagStart.length() + tagEnd.length() + 10)
+            return -1;
         int startLoc = xml.indexOf(tagStart,start);
         if(startLoc == -1)
-            return;
+            return -1;
         int endLoc = xml.indexOf(tagEnd,start);
         if(endLoc == -1)
             throw new IllegalArgumentException("unclused tag " + tag);
         endLoc += tagEnd.length();
         holder.add(xml.substring(startLoc,endLoc));
-        extractXMLTagsInternal( holder, xml, tag,endLoc);
+        calls[0] ++;
+        return endLoc;
 
     }
 

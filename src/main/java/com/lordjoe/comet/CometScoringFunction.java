@@ -18,6 +18,11 @@ public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String,
 
     private static final long MAX_ELAPSED = 90 * 1000; // 1 minutes
     private transient String baseParamters;
+    private final String extension;
+
+    public CometScoringFunction(String extension) {
+        this.extension = extension;
+    }
 
     private String getCurrentParameters(String fastaFile) {
          StringBuilder sb = new StringBuilder();
@@ -39,15 +44,16 @@ public class CometScoringFunction extends AbstractLoggingFunction<Tuple2<String,
         String mzXML = v1._2;
 
         System.out.println( "Fasta size " + fasta.length() +" mzXML " +  mzXML.length() );
-        File fastaFile = createLocalFile(fasta,"fasta");
+        File fastaFile = createLocalFile(fasta,extension);
         FileUtilities.writeFile(fastaFile,fasta);
-        File xmlFile = createLocalFile(mzXML,"mzXML");
+        File xmlFile = createLocalFile(mzXML,extension);
         FileUtilities.writeFile(xmlFile,mzXML);
+
         String absolutePath = fastaFile.getAbsolutePath();
         String params = getCurrentParameters(absolutePath);
         File paramsFile = createLocalFile(params,"params");
         FileUtilities.writeFile(paramsFile,params);
-        String outFilePath = xmlFile.getAbsolutePath().replace(".mzXML", ".pep.xml").replace("\\", "/");
+        String outFilePath = xmlFile.getAbsolutePath().replace("." + extension, ".pep.xml").replace("\\", "/");
         File outFile = new File(outFilePath);
         String outfileName =  outFile.getName();
         outfileName = outfileName.replace(".pep.xml","");

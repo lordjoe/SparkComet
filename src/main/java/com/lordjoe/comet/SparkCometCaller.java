@@ -5,6 +5,9 @@ import com.lordjoe.distributed.MultiMGFInputFormat;
 import com.lordjoe.distributed.SparkSpectrumUtilities;
 import com.lordjoe.distributed.SparkUtilities;
 import com.lordjoe.distributed.hydra.SparkMapReduceScoringHandler;
+import com.lordjoe.distributed.input.FastaInputFormat;
+import com.lordjoe.distributed.input.MGFInputFormat;
+import com.lordjoe.distributed.input.MGFSpecialDelimitedText;
 import com.lordjoe.distributed.input.MultiMZXMLScanInputFormat;
 import com.lordjoe.distributed.spark.IdentityFunction;
 import com.lordjoe.distributed.spark.accumulators.AbstractLoggingFlatMapFunction;
@@ -44,6 +47,14 @@ public class SparkCometCaller implements Serializable {
 
     public static final int PROTEINS_TO_HANDLE = 2000;
     public static final int SPECTRA_TO_HANDLE = 500;
+
+    public static int numberAnalalyzedSpectra = 0;
+    public static int numberAnlalyzedProteins = 0;
+    public static int numberSpectraPartitions = 0;
+    public static int numberProteinPartitions = 0;
+    public static int scoringPartitions = 0;
+    public static int proteinsToHandle = 0;
+    public static int spectraToHandle = 0;
 
     public static final boolean DO_DEBUGGING_COUNT = true;
 
@@ -182,39 +193,49 @@ public class SparkCometCaller implements Serializable {
         }
 
         int minimumPartitions = 100;
-        int scoringPartitions = minimumPartitions;
+         scoringPartitions = minimumPartitions;
         String partitionBinStr = SparkUtilities.getSparkProperties().getProperty("com.lordjoe.comet.scoring_partitions");
         if (partitionBinStr != null)
             scoringPartitions = Integer.parseInt(partitionBinStr);
         System.out.println("Scoring partitions");
 
         String propBinStr = SparkUtilities.getSparkProperties().getProperty("com.lordjoe.comet.fastaBin");
-        int proteinsToHandle = PROTEINS_TO_HANDLE;
+        proteinsToHandle = PROTEINS_TO_HANDLE;
         if (propBinStr != null)
             proteinsToHandle = Integer.parseInt(propBinStr);
         String databasePath = databaseName + ".fasta";
 
         String binStr = SparkUtilities.getSparkProperties().getProperty("com.lordjoe.comet.spectraBin");
-        int spectraToHandle = SPECTRA_TO_HANDLE;
+        spectraToHandle = SPECTRA_TO_HANDLE;
         if (binStr != null)
             spectraToHandle = Integer.parseInt(binStr);
         System.out.println("SpectraPath " + spectrumPath);
 
         File fasta = new File(databasePath);
-        int splitsize = 50  * 1000 * 1000;
-        JavaRDD<String> fastas = handleFastaFile(fasta,splitsize);
+      //  int splitsize = 50 * 1000 * 1000;
+        JavaRDD<String> fastas = handleFastaFileNew(databasePath, proteinsToHandle);
+
+      //  long[] countRef = new long[1];
+    //    fastas = SparkUtilities.persistAndCount("Fasta Split", fastas, countRef);
+     //   int fastaCount = (int) countRef[0];
+
+       // List<String> collect = fastas.collect();
 
         File spectra = new File(spectrumPath);
 
+        String extension = FileUtilities.getExtension(spectra);
+
+
         JavaRDD<String> spectraData;
-        if(spectra.getName().toLowerCase().endsWith(".mzxml")) {
-            spectraData = handleMzmlFile(spectra,spectraToHandle);
+        if (spectra.getName().toLowerCase().endsWith(".mzxml")) {
+            spectraData = handleMzmlFile(spectra, spectraToHandle);
+        } else {
+            spectraData = handleMgfFile(spectrumPath, spectraToHandle);
         }
-        else {
-            spectraData = handleMgfFile(spectrumPath,spectraToHandle);
-       }
 
 
+
+   //     List<String> collect = spectraData.collect();
 
         //    String header = getSpectrumHeader(spectrumPath);
         //    JavaRDD<String> spectraData =  SparkSpectrumUtilities.partitionAsMZXML(spectrumPath,currentContext,spectraToHandle,header).values();
@@ -226,15 +247,15 @@ public class SparkCometCaller implements Serializable {
         //   scoringPairs.persist(StorageLevel.MEMORY_AND_DISK()) ;
         //    List<Tuple2<String, String>> parirs = scoringPairs.collect();
 
-        if(scoringPairs.partitions().size() < minimumPartitions)
-        scoringPairs = scoringPairs.repartition(scoringPartitions);
+        if (scoringPairs.partitions().size() < minimumPartitions)
+            scoringPairs = scoringPairs.repartition(scoringPartitions);
 
         // https://martin.atlassian.net/wiki/spaces/lestermartin/blog/2016/05/19/67043332/why+spark+s+mapPartitions+transformation+is+faster+than+map+calls+your+function+once+partition+not+once+element
         // trying mapPartition
 
-      //   scoringPairs =   SparkUtilities.persistAndCount("Commet Calls " ,scoringPairs);
+        //   scoringPairs =   SparkUtilities.persistAndCount("Commet Calls " ,scoringPairs);
 
-        JavaRDD<String> pepXMLS = scoringPairs.map(new CometScoringFunction() );
+        JavaRDD<String> pepXMLS = scoringPairs.map(new CometScoringFunction(extension));
         //JavaRDD<String> pepXMLS = scoringPairs.mapPartitions(new CometScoringFunction());
 
         String header = null;
@@ -255,25 +276,25 @@ public class SparkCometCaller implements Serializable {
         handleScores(pepXMLS, scoringApplication, header);
 
         System.out.println("Cleaning Up");
-     //   for (File file : files1) {
-     //       file.delete();
-    //    }
-    //    tempdir.delete();
+        //   for (File file : files1) {
+        //       file.delete();
+        //    }
+        //    tempdir.delete();
 
     }
 
     private static JavaRDD<String> handleMgfFile(String path, int spectraToHandle) {
 
         JavaSparkContext ctx = SparkUtilities.getCurrentContext();
-        Configuration conf = new  Configuration(ctx.hadoopConfiguration());
-        conf.setInt("spectraPerGroup",spectraToHandle);
-        conf.set("path",path);
-        Class inputFormatClass = MultiMGFInputFormat.class;
+        Configuration conf = new Configuration(ctx.hadoopConfiguration());
+        conf.setInt("spectraPerGroup", spectraToHandle);
+        conf.set("path", path);
+        Class inputFormatClass = MGFInputFormat.class; //MultiMGFInputFormat.class;
         Class keyClass = String.class;
         Class valueClass = String.class;
 
 
-        return ctx.newAPIHadoopFile(
+        JavaRDD<String>  spectraData =  ctx.newAPIHadoopFile(
                 path,
                 inputFormatClass,
                 keyClass,
@@ -281,11 +302,107 @@ public class SparkCometCaller implements Serializable {
                 conf
 
         ).values();
+        long[] countRef = new long[1];
+        spectraData = SparkUtilities.persistAndCount("Spectra Split", spectraData, countRef);
+        numberAnalalyzedSpectra = (int) countRef[0];
 
+        numberSpectraPartitions = 1 + (int) numberAnalalyzedSpectra / (int) spectraToHandle;
+        spectraData = spectraData.coalesce(numberSpectraPartitions);
+
+        System.out.println("Spectra Partitions " + numberSpectraPartitions);
+
+        // compine all recordsin partition to one string
+        spectraData = spectraData.mapPartitions(new FlatMapFunction<Iterator<String>, String>() {
+            @Override
+            public Iterator<String> call(Iterator<String> stringIterator) throws Exception {
+                int nrecs = 0;
+                StringBuilder sb = new StringBuilder();
+                while(stringIterator.hasNext()) {
+                    sb.append(stringIterator.next());
+                    sb.append("\n");
+                    nrecs++;
+                }
+                List<String> ret = new ArrayList<>();
+                ret.add(sb.toString());
+                return ret.iterator();
+            }
+        });
+  //      spectraData = SparkUtilities.persistAndCount("Spectra to Process", spectraData, countRef);
+        return spectraData;
     }
 
-    private static JavaRDD<String> handleMzmlFile(File spectra,int spectraToHandle)
-    {
+    private static JavaRDD<String> handleFastaFileNew(String path, int spectraToHandle) {
+
+        JavaSparkContext ctx = SparkUtilities.getCurrentContext();
+        Configuration conf = new Configuration(ctx.hadoopConfiguration());
+        Class inputFormatClass = FastaInputFormat.class; //MultiMGFInputFormat.class;
+        Class keyClass = String.class;
+        Class valueClass = String.class;
+
+
+        JavaRDD<String>  spectraData =  ctx.newAPIHadoopFile(
+                path,
+                inputFormatClass,
+                keyClass,
+                valueClass,
+                conf
+
+        ).values();
+        long[] countRef = new long[1];
+        spectraData = SparkUtilities.persistAndCount("Protein Split", spectraData, countRef);
+        numberAnlalyzedProteins = (int) countRef[0];
+
+        numberProteinPartitions  = 1 + (int) numberAnlalyzedProteins / (int) spectraToHandle;
+        spectraData = spectraData.repartition(numberProteinPartitions);
+
+        System.out.println("Protein Partitions " + numberProteinPartitions);
+
+
+        // compine all recordsin partition to one string
+        spectraData = spectraData.mapPartitions(new FlatMapFunction<Iterator<String>, String>() {
+            @Override
+            public Iterator<String> call(Iterator<String> stringIterator) throws Exception {
+                int nrecs = 0;
+                boolean pass1  = false; //  if true see first split
+                StringBuilder sb = new StringBuilder();
+                while(stringIterator.hasNext()) {
+                    String next = stringIterator.next();
+                    String str = appendSpectrum(next);
+                    if(pass1) {
+                        System.out.println(next);
+                        System.out.println(str);
+                        pass1 = false;
+                    }
+                    sb.append(str);
+                     nrecs++;
+                }
+                List<String> ret = new ArrayList<>();
+                ret.add(sb.toString());
+                return ret.iterator();
+            }
+        });
+        return spectraData;
+    }
+
+    public static String appendSpectrum(String raw) {
+        StringBuilder sb = new StringBuilder(">");
+        while(raw.length() > 80) {
+            sb.append(raw.substring(0,80));
+            sb.append("\n");
+            if(raw.length() > 80)
+                raw = raw.substring(80);
+            else
+                raw = "";
+        }
+        if(raw.length() > 0) {
+            sb.append(raw );
+            sb.append("\n");
+
+        }
+         return sb.toString();
+    }
+
+    private static JavaRDD<String> handleMzmlFile(File spectra, int spectraToHandle) {
         System.out.println("SpectraPath file  " + spectra.getAbsolutePath());
         JavaSparkContext currentContext = SparkUtilities.getCurrentContext();
 
@@ -323,12 +440,11 @@ public class SparkCometCaller implements Serializable {
         if (!tempdir.canRead()) {
             System.out.println(tempdir.getAbsolutePath() + " cannot be read!");
         }
-        JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdirAbsolutePath,100).values();
+        JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdirAbsolutePath, 100).values();
         return spectraData;
     }
 
-    private static JavaRDD<String> handleFastaFile(File spectra,int splitsize)
-    {
+    private static JavaRDD<String> handleFastaFile(File spectra, int splitsize) {
         System.out.println("fasta file  " + spectra.getAbsolutePath());
         JavaSparkContext currentContext = SparkUtilities.getCurrentContext();
 
@@ -338,11 +454,11 @@ public class SparkCometCaller implements Serializable {
             System.out.println("Data is being split");
             long length = spectra.length();
             long numberSplits = length / splitsize;
-              FileUtilities.expungeDirectory(tempdir);
+            FileUtilities.expungeDirectory(tempdir);
             tempdir.mkdirs();
-            List<File>  files = splitFastaFile(spectra,  tempdir,   currentContext,splitsize);
+            List<File> files = splitFastaFile(spectra, tempdir, currentContext, splitsize);
 
-           } else {
+        } else {
             System.out.println("Data is presplit");
         }
         //      File tempdir = new File(spectra.getParentFile(),UUID.randomUUID().toString());
@@ -370,15 +486,15 @@ public class SparkCometCaller implements Serializable {
         if (!tempdir.canRead()) {
             System.out.println(tempdir.getAbsolutePath() + " cannot be read!");
         }
-        JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdirAbsolutePath,100).values();
+        JavaRDD<String> spectraData = currentContext.wholeTextFiles(tempdirAbsolutePath, 100).values();
         return spectraData;
     }
 
-    public static List<File> splitFastaFile(File original,File tempdir, JavaSparkContext currentContext,int splitsize) {
-        JavaPairRDD<String, String> parse =  SparkSpectrumUtilities.partitionFastaFile(original.getAbsolutePath(),
-                currentContext,splitsize);
+    public static List<File> splitFastaFile(File original, File tempdir, JavaSparkContext currentContext, int splitsize) {
+        JavaPairRDD<String, String> parse = SparkSpectrumUtilities.partitionFastaFile(original.getAbsolutePath(),
+                currentContext, splitsize);
         JavaRDD<String> data = parse.values();
-        int numberPartitions = Math.max(1,(int)(original.length() / splitsize));
+        int numberPartitions = Math.max(1, (int) (original.length() / splitsize));
         final File targetDir = tempdir;
         data = data.repartition(numberPartitions);
         JavaRDD<String> ret = data.mapPartitions(new FlatMapFunction<Iterator<String>, String>() {
@@ -468,7 +584,7 @@ public class SparkCometCaller implements Serializable {
 
         header = STANDARD_HEADER;
 
-         JavaPairRDD < String, String > scores = pepXMLS.flatMapToPair(new TagExtractionFunction("spectrum_query", "spectrum"));
+        JavaPairRDD<String, String> scores = pepXMLS.flatMapToPair(new TagExtractionFunction("spectrum_query", "spectrum"));
 
         JavaPairRDD<String, SpectrumQueryWithHits> results = scores.combineByKey(
                 new GenerateFirstScore(),
@@ -486,11 +602,22 @@ public class SparkCometCaller implements Serializable {
             }
         });
 
-        System.out.println("Calling consolidator");
-        consolidator.writeScores(outtext);
+        showRunStatistics();
+          consolidator.writeScores(outtext);
 
         //       writeScores(  header,  results, "combinedresults.pep.xml");
     }
+
+    private static void showRunStatistics() {
+        System.out.println("Protein Batch " + proteinsToHandle);
+        System.out.println("Spectra Batch " + spectraToHandle);
+        System.out.println("Number Spectra " + numberAnalalyzedSpectra);
+        System.out.println("Number Proteins " + numberAnlalyzedProteins);
+        System.out.println("Spectra Partitions" + numberSpectraPartitions);
+        System.out.println("Proteins Partitions " + numberProteinPartitions);
+        System.out.println("Comet calls " + (numberSpectraPartitions * numberProteinPartitions));
+        System.out.println("Comparisons " + (numberAnalalyzedSpectra * numberAnlalyzedProteins) / 1000000 + "M");
+     }
 
     private static String extractHeader(JavaRDD<String> pepXMLS) {
         // we need to use a few times
@@ -571,9 +698,9 @@ public class SparkCometCaller implements Serializable {
 
         System.out.println("Done waiting to be killed");
         // hand so display workd
- //       while(!HadoopUtilities.isWindows()) {
- //           Thread.sleep(1000);
- //      }
+        //       while(!HadoopUtilities.isWindows()) {
+        //           Thread.sleep(1000);
+        //      }
     }
 
     private static void runFirefox() {
